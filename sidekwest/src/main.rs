@@ -82,7 +82,7 @@ fn url_to_webhook(s: &str) -> Result<Webhook> {
 async fn main() -> Result<()> {
     load_dotenv();
     let opts: CLI = CLI::parse();
-    let db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
+    let _db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
     match opts.command {
         SubCommand::Bot => bot::bot_main().await,
         SubCommand::Schedule { file } => schedule::run_schedule_update(file)?,
