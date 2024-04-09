@@ -1,0 +1,23 @@
+Role has:
+
+Roles:
+    Name <str>
+    Id <int>
+
+    Position <int>
+    Color <bool>
+    Icon <bool>
+    Hoisted <bool>
+    Everyone@ <bool>
+    Global perms <as int>
+
+    bot <bool>
+    integration <bool>
+    booster <bool>
+    purchasable <bool>
+    guild_connection <bool>
+
+ChannelRolePerms:
+    ChannelId <int>
+    RoleId <int> :FK Roles.id
+    Permissions <int>
