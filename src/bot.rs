@@ -76,7 +76,6 @@ async fn uptime(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[tokio::main]
 pub async fn bot_main() {
     let token = std::env::var("DISCORD_TOKEN").expect("missing env var: DISCORD_TOKEN");
     let intents =
