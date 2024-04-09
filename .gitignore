@@ -2,3 +2,4 @@
 /.cargo
 /.vscode
 schedule.json
+testing.sqlite
