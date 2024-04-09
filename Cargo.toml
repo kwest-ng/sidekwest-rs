@@ -1,4 +1,3 @@
 [workspace]
-members = [
-    "sidekwest"
-]
+members = ["sidekwest", "migration", "entities"]
+resolver = "2"
