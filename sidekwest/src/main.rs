@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use fernet::Fernet;
 use regex::Regex;
 
-use self::database::db_connect;
+use self::database::{db_connect, test_database};
 use self::schedule::Webhook;
 use self::secrecy::{decrypt, encrypt};
 
@@ -46,6 +46,8 @@ enum SubCommand {
     EncryptWebhook,
     /// Create a new Fernet key
     NewKey,
+    /// Test the database and schema
+    DbTest,
 }
 
 fn load_dotenv() {
@@ -106,6 +108,9 @@ async fn main() -> Result<()> {
         }
         SubCommand::NewKey => {
             print!("{}", Fernet::generate_key());
+        }
+        SubCommand::DbTest => {
+            test_database().await?;
         }
     };
     Ok(())
