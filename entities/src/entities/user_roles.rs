@@ -3,20 +3,19 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "channel_roles")]
+#[sea_orm(table_name = "user_roles")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub channel_sf: i32,
     pub role_id: i32,
-    pub perms: i32,
+    pub user_sf: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::roles::Entity",
-        from = "Column::RoleId",
+        from = "Column::UserSf",
         to = "super::roles::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
