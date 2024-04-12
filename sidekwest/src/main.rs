@@ -9,6 +9,7 @@ use color_eyre::Result;
 use clap::{Parser, Subcommand};
 use fernet::Fernet;
 use regex::Regex;
+use tracing_subscriber::EnvFilter;
 
 use self::database::{db_connect, test_database};
 use self::schedule::Webhook;
@@ -81,9 +82,24 @@ fn url_to_webhook(s: &str) -> Result<Webhook> {
     Ok(hook)
 }
 
+fn setup() {
+    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
+        std::env::set_var("RUST_LIB_BACKTRACE", "1")
+    }
+    color_eyre::install().expect("Failed to install eyre reporter");
+
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info")
+    }
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init().expect("Failed to set tracing subscriber");
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     load_dotenv();
+    setup();
     let opts: CLI = CLI::parse();
     let _db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
     match opts.command {
