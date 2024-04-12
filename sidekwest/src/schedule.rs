@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::{env, thread};
 
-use anyhow::{anyhow, bail, Context, Result};
+use color_eyre::eyre::{bail, eyre, WrapErr};
+use color_eyre::Result;
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use regex::Regex;
 use reqwest::header::{self, HeaderMap};
@@ -218,14 +219,14 @@ impl Event {
         let re = Regex::new(TIME_PATTERN)?;
         let caps = re
             .captures(tod)
-            .ok_or_else(|| anyhow!("Failed to match time to regexp"))?;
+            .ok_or_else(|| eyre!("Failed to match time to regexp"))?;
         let time_value = caps
             .name("time_value")
-            .ok_or_else(|| anyhow!("Failed to capture time_value"))?
+            .ok_or_else(|| eyre!("Failed to capture time_value"))?
             .as_str();
         let ampm = caps
             .name("ampm")
-            .ok_or_else(|| anyhow!("Failed to capture ampm"))?
+            .ok_or_else(|| eyre!("Failed to capture ampm"))?
             .as_str();
         let (mut hours, minutes) = match time_value.split_once(':') {
             Some((hrs, mns)) => (

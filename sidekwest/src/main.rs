@@ -4,7 +4,8 @@
 use std::io::{stdin, Read};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use clap::{Parser, Subcommand};
 use fernet::Fernet;
 use regex::Regex;
@@ -67,14 +68,14 @@ fn url_to_webhook(s: &str) -> Result<Webhook> {
     let re = Regex::new(URL_PATTERN)?;
     let caps = re
         .captures(s)
-        .ok_or_else(|| anyhow!("Did not match webhook URL"))?;
+        .ok_or_else(|| eyre!("Did not match webhook URL"))?;
     let id = caps
         .name("id")
-        .ok_or_else(|| anyhow!("Could not find webhook id"))?
+        .ok_or_else(|| eyre!("Could not find webhook id"))?
         .as_str();
     let token = caps
         .name("token")
-        .ok_or_else(|| anyhow!("Could not find webhook token"))?
+        .ok_or_else(|| eyre!("Could not find webhook token"))?
         .as_str();
     let hook = Webhook::new(id.parse()?, encrypt(token)?);
     Ok(hook)

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::Result;
+use color_eyre::Result;
 use migration::MigratorTrait;
 use sea_orm::entity::prelude::*;
 use sea_orm::{ActiveValue, ConnectOptions, Database};
