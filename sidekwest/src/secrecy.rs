@@ -25,6 +25,10 @@ pub fn decrypt(token: &str) -> Result<String> {
     Ok(str)
 }
 
+pub fn generate_key() -> String {
+    Fernet::generate_key()
+}
+
 const URL_PATTERN: &str = r"/webhooks/(?<id>.*?)/(?<token>.*?)/?$";
 
 pub fn url_to_webhook(s: &str) -> Result<Webhook> {
