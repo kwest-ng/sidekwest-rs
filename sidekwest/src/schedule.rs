@@ -7,11 +7,11 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::{env, thread};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use regex::Regex;
-use reqwest::blocking::Client;
 use reqwest::header::{self, HeaderMap};
+use reqwest::Client;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -20,9 +20,9 @@ use crate::secrecy;
 
 const TIME_PATTERN: &str = r"^\s*(?<time_value>[01]?\d(?::[0-5]\d)?)\s*(?<ampm>[AaPp][Mm]?)";
 
-pub fn run_schedule_update(file: PathBuf) -> Result<()> {
+pub async fn run_schedule_update(file: PathBuf) -> Result<()> {
     let schedule: Schedule = serde_json::from_reader(BufReader::new(File::open(file)?))?;
-    schedule.publish_schedule()
+    schedule.publish_schedule().await
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -56,6 +56,7 @@ struct Event {
     time_of_day: String,
     #[serde(rename = "override")]
     override_mesg: Option<String>,
+    skip: Option<bool>,
     _event_time: Cell<Option<DateTime<Local>>>,
 }
 
@@ -75,7 +76,7 @@ impl Webhook {
 }
 
 impl Schedule {
-    fn publish_schedule(&self) -> Result<()> {
+    async fn publish_schedule(&self) -> Result<()> {
         let token = env::var("DISCORD_TOKEN")?;
 
         let mut headers = HeaderMap::new();
@@ -85,12 +86,12 @@ impl Schedule {
             .user_agent("Discord Bot (https://twitch.tv/kwest_ng, v0.1-alpha)")
             .build()?;
 
-        let mesgs: Vec<u64> = get_channel_messages(self.post_location.channel_id, &client)?
+        let mesgs: Vec<u64> = get_channel_messages(self.post_location.channel_id, &client).await?
             .into_iter()
             .filter(|id| Some(*id) != self.post_location.message_id)
             .collect();
         eprintln!("Found {} messages to delete", mesgs.len());
-        delete_messages(self.post_location.channel_id, mesgs, &client)?;
+        delete_messages(self.post_location.channel_id, mesgs, &client).await?;
 
         let wh_token = secrecy::decrypt(&self.post_location.webhook.encrypted_token)?;
         let webhook_base_url = format!(
@@ -101,7 +102,7 @@ impl Schedule {
         let mut sticky_mesg = None;
         if let Some(id) = self.post_location.message_id {
             let url = format!("{webhook_base_url}/messages/{id}");
-            if client.get(url).send()?.status().is_success() {
+            if client.get(url).send().await?.status().is_success() {
                 sticky_mesg = Some(id);
             } else {
                 eprintln!("Message id was provided, but missing");
@@ -113,14 +114,20 @@ impl Schedule {
         match sticky_mesg {
             Some(id) => {
                 let url = format!("{webhook_base_url}/messages/{id}");
-                client.patch(url).json(&body).send()?.error_for_status()?;
+                client
+                    .patch(url)
+                    .json(&body)
+                    .send()
+                    .await?
+                    .error_for_status()?;
             }
             None => {
                 client
                     .post(&webhook_base_url)
                     .query(&[("wait", true)])
                     .json(&body)
-                    .send()?
+                    .send()
+                    .await?
                     .error_for_status()?;
             }
         };
@@ -134,7 +141,8 @@ impl Schedule {
         client
             .post(&webhook_base_url)
             .json(&body)
-            .send()?
+            .send()
+            .await?
             .error_for_status()?;
         Ok(())
     }
@@ -147,6 +155,9 @@ impl Schedule {
         };
         buf.write_str("Stream Schedule:\n")?;
         for event in self.events.iter() {
+            if event.skip.unwrap_or(false) {
+                continue;
+            }
             buf.write_str(&format!("- {}\n", event.to_msg_line()))?;
         }
         buf.write_char('\n')?;
@@ -190,14 +201,17 @@ impl Event {
 
     fn get_next_day(needle: &str) -> Result<NaiveDate> {
         let mut today = Local::now().date_naive();
+        if needle.len() > 3 {
+            bail!("day of week too long: {needle}")
+        };
         for _ in 0..10 {
             let weekday = today.weekday().to_string().to_ascii_lowercase();
-            if weekday.contains(&needle.to_ascii_lowercase()) {
-                break;
+            if weekday.starts_with(&needle.to_ascii_lowercase()) {
+                return Ok(today);
             }
             today = today.succ_opt().unwrap();
-        }
-        Ok(today)
+        };
+        bail!("Failed to match day of week")
     }
 
     fn parse_time_of_day(tod: &str) -> Result<NaiveTime> {
@@ -244,7 +258,7 @@ struct RateLimitResponse {
     retry_after: f32,
 }
 
-fn delete_messages(channel_id: u64, mesgs: Vec<u64>, client: &Client) -> Result<()> {
+async fn delete_messages(channel_id: u64, mesgs: Vec<u64>, client: &Client) -> Result<()> {
     let mut queue = VecDeque::from_iter(mesgs);
     loop {
         let mesg = match queue.pop_front() {
@@ -252,35 +266,37 @@ fn delete_messages(channel_id: u64, mesgs: Vec<u64>, client: &Client) -> Result<
             None => break,
         };
         let url = format!("{API_URL}/channels/{channel_id}/messages/{mesg}");
-        let resp = client.delete(url).send()?;
+        let resp = client.delete(url).send().await?;
 
         if resp.status().is_success() {
             eprintln!("Deleted message id: {mesg}");
             continue;
         }
-        
+
         if resp.status() == StatusCode::TOO_MANY_REQUESTS {
             eprintln!("Rate limited!");
             queue.push_front(mesg);
         }
 
-        let delay = resp.json::<RateLimitResponse>()?.retry_after + 3.0;
+        let delay = resp.json::<RateLimitResponse>().await?.retry_after + 3.0;
         eprintln!("Sleeping for {delay}s to reset rate limits");
         thread::sleep(Duration::from_secs_f32(delay));
     }
     Ok(())
 }
 
-fn get_channel_messages(channel_id: u64, client: &Client) -> Result<Vec<u64>> {
+async fn get_channel_messages(channel_id: u64, client: &Client) -> Result<Vec<u64>> {
     let url = format!("{API_URL}/channels/{channel_id}/messages");
     let resp = client
         .get(url)
         .query(&[("limit", 100)])
         .send()
+        .await
         .context("Sending get")?;
     resp.error_for_status()
         .context("Checking get response")?
-        .json::<Vec<MessageId>>()?
+        .json::<Vec<MessageId>>()
+        .await?
         .into_iter()
         .map(|m_id| m_id.id.parse::<u64>().map_err(Into::into))
         .collect::<Result<Vec<_>>>()

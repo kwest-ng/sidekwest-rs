@@ -87,7 +87,10 @@ async fn main() -> Result<()> {
     let _db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
     match opts.command {
         SubCommand::Bot => bot::bot_main().await,
-        SubCommand::Schedule { file } => schedule::run_schedule_update(file)?,
+        SubCommand::Schedule { file } => {
+
+                schedule::run_schedule_update(file).await?
+        },
         SubCommand::Encrypt => {
             let str = encrypt(&read_stdin()?)?;
             print!("{str}");
