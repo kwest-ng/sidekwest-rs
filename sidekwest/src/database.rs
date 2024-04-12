@@ -6,6 +6,8 @@ use migration::MigratorTrait;
 use sea_orm::entity::prelude::*;
 use sea_orm::{ActiveValue, ConnectOptions, Database};
 
+pub const DEFAULT_DB: &str = "sqlite://testing.sqlite?mode=rwc";
+
 pub async fn test_database() -> Result<()> {
     let path = PathBuf::from("ephemeral-test-db.sqlite");
     let url = format!("sqlite://{}?mode=rwc", path.display());

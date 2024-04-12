@@ -7,9 +7,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::{env, thread};
 
+use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use color_eyre::eyre::{bail, eyre, WrapErr};
 use color_eyre::Result;
-use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use regex::Regex;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Client;
@@ -87,7 +87,8 @@ impl Schedule {
             .user_agent("Discord Bot (https://twitch.tv/kwest_ng, v0.1-alpha)")
             .build()?;
 
-        let mesgs: Vec<u64> = get_channel_messages(self.post_location.channel_id, &client).await?
+        let mesgs: Vec<u64> = get_channel_messages(self.post_location.channel_id, &client)
+            .await?
             .into_iter()
             .filter(|id| Some(*id) != self.post_location.message_id)
             .collect();
@@ -211,7 +212,7 @@ impl Event {
                 return Ok(today);
             }
             today = today.succ_opt().unwrap();
-        };
+        }
         bail!("Failed to match day of week")
     }
 
@@ -238,7 +239,7 @@ impl Event {
                 0,
             ),
         };
-        if ampm.contains(&['P', 'p']) {
+        if ampm.contains(['P', 'p']) {
             hours += 12
         }
         let time = NaiveTime::from_hms_opt(hours as u32, minutes as u32, 0)
