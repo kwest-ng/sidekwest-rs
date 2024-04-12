@@ -11,23 +11,20 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    // Table essentials
-                    .table(ChannelRoles::Table)
+                    .table(UserRoles::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(ChannelRoles::Id)
+                        ColumnDef::new(UserRoles::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    // Values
-                    .col(ColumnDef::new(ChannelRoles::ChannelSf).integer().not_null())
-                    .col(ColumnDef::new(ChannelRoles::RoleId).integer().not_null())
-                    .col(ColumnDef::new(ChannelRoles::Perms).integer().not_null())
+                    .col(ColumnDef::new(UserRoles::RoleId).integer().not_null())
+                    .col(ColumnDef::new(UserRoles::UserSf).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .from(ChannelRoles::Table, ChannelRoles::RoleId)
+                            .from(UserRoles::Table, UserRoles::UserSf)
                             .to(Roles::Table, Roles::Id),
                     )
                     .to_owned(),
@@ -37,17 +34,16 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(ChannelRoles::Table).to_owned())
+            .drop_table(Table::drop().table(UserRoles::Table).to_owned())
             .await
     }
 }
 
 #[derive(DeriveIden)]
-enum ChannelRoles {
+enum UserRoles {
     Table,
     Id,
-    // Values
-    ChannelSf,
+    // Value
     RoleId,
-    Perms,
+    UserSf,
 }

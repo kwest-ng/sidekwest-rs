@@ -20,7 +20,13 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(Roles::DiscordId)
+                        ColumnDef::new(Roles::GuildSf)
+                            .integer()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Roles::RoleSf)
                             .integer()
                             .not_null()
                             .unique_key(),
@@ -101,7 +107,8 @@ pub enum Roles {
     Table,
     Id,
     // Values
-    DiscordId,
+    GuildSf,
+    RoleSf,
     Name,
     Position,
     GlobalPerms,
