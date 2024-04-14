@@ -46,9 +46,9 @@ fn read_stdin() -> Result<String> {
 
 pub async fn run() -> Result<()> {
     let opts: CLI = CLI::parse();
-    let _db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
+    let db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
     match opts.command {
-        Command::Bot => bot::bot_main().await,
+        Command::Bot => bot::bot_main(db).await,
         Command::Schedule { file } => schedule::run_schedule_update(file).await?,
         Command::Encrypt => {
             let str = encrypt(&read_stdin()?)?;

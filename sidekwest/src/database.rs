@@ -14,7 +14,8 @@ pub async fn test_database() -> Result<()> {
     let db = db_connect(&url).await?;
     migration::Migrator::fresh(&db).await?;
     let role = entities::roles::ActiveModel {
-        discord_id: ActiveValue::set(1),
+        guild_sf: ActiveValue::set(1),
+        role_sf: ActiveValue::set(1),
         name: ActiveValue::set("hello".to_owned()),
         position: ActiveValue::set(1),
         global_perms: ActiveValue::set(1),

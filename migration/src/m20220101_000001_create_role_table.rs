@@ -21,20 +21,29 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Roles::GuildSf)
-                            .integer()
+                            // TODO: Turn these into binary objects
+                            .big_unsigned()
                             .not_null()
                             .unique_key(),
                     )
                     .col(
                         ColumnDef::new(Roles::RoleSf)
-                            .integer()
+                            .big_unsigned()
                             .not_null()
                             .unique_key(),
                     )
                     // values
                     .col(ColumnDef::new(Roles::Name).string().not_null())
-                    .col(ColumnDef::new(Roles::Position).integer().not_null())
-                    .col(ColumnDef::new(Roles::GlobalPerms).integer().not_null())
+                    .col(
+                        ColumnDef::new(Roles::Position)
+                            .big_unsigned()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Roles::GlobalPerms)
+                            .big_integer()
+                            .not_null(),
+                    )
                     // booleans
                     .col(
                         ColumnDef::new(Roles::HasColor)

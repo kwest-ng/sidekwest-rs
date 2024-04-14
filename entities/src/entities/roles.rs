@@ -8,12 +8,12 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     #[sea_orm(unique)]
-    pub guild_sf: i32,
+    pub guild_sf: i64,
     #[sea_orm(unique)]
-    pub role_sf: i32,
+    pub role_sf: i64,
     pub name: String,
-    pub position: i32,
-    pub global_perms: i32,
+    pub position: i64,
+    pub global_perms: i64,
     pub has_color: bool,
     pub has_icon: bool,
     pub is_hoisted: bool,
