@@ -4,16 +4,11 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 
-use crate::database::{db_connect, test_database, DEFAULT_DB};
 use crate::secrecy::{decrypt, encrypt, generate_key, url_to_webhook};
 use crate::{bot, schedule};
 
 #[derive(Debug, Parser, Clone)]
 struct CLI {
-    #[arg(short = 'd', long)]
-    /// The database URL to operate against
-    database_url: Option<String>,
-
     #[command(subcommand)]
     command: Command,
 }
@@ -34,8 +29,6 @@ enum Command {
     EncryptWebhook,
     /// Create a new Fernet key
     NewKey,
-    /// Test the database and schema
-    DbTest,
 }
 
 fn read_stdin() -> Result<String> {
@@ -46,9 +39,8 @@ fn read_stdin() -> Result<String> {
 
 pub async fn run() -> Result<()> {
     let opts: CLI = CLI::parse();
-    let db = db_connect(opts.database_url.as_deref().unwrap_or(DEFAULT_DB)).await?;
     match opts.command {
-        Command::Bot => bot::bot_main(db).await,
+        Command::Bot => bot::bot_main().await,
         Command::Schedule { file } => schedule::run_schedule_update(file).await?,
         Command::Encrypt => {
             let str = encrypt(&read_stdin()?)?;
@@ -70,9 +62,6 @@ pub async fn run() -> Result<()> {
         }
         Command::NewKey => {
             print!("{}", generate_key());
-        }
-        Command::DbTest => {
-            test_database().await?;
         }
     };
     Ok(())

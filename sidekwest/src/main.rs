@@ -3,7 +3,6 @@ use tracing_subscriber::EnvFilter;
 
 mod bot;
 mod cli;
-mod database;
 mod schedule;
 mod secrecy;
 

@@ -3,15 +3,11 @@ use std::time::SystemTime;
 use color_eyre::eyre::Error;
 use nutype::nutype;
 use poise::serenity_prelude::{GetMessages, MessageId};
-// use poise::serenity_prelude::{GetMessages, MessageId};
 use poise::{serenity_prelude as serenity, Framework, FrameworkOptions, PrefixFrameworkOptions};
-use sea_orm::DatabaseConnection;
 
-mod role_ingest;
 
 struct UserData {
     start_time: SystemTime,
-    db: DatabaseConnection,
 }
 type Context<'a> = poise::Context<'a, UserData, Error>;
 
@@ -32,7 +28,7 @@ async fn _purge(ctx: &Context<'_>, f: impl Fn(MessageId) -> ShouldDelete) -> Res
 #[poise::command(slash_command, required_permissions = "MANAGE_ROLES")]
 async fn audit(ctx: Context<'_>) -> Result<(), Error> {
     ctx.defer_ephemeral().await?;
-    role_ingest::download_roles(&ctx).await?;
+    // role_ingest::download_roles(&ctx).await?;
     Ok(())
 }
 
@@ -56,7 +52,7 @@ async fn uptime(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn bot_main(db: DatabaseConnection) {
+pub async fn bot_main() {
     let token = std::env::var("DISCORD_TOKEN").expect("missing env var: DISCORD_TOKEN");
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
@@ -74,7 +70,6 @@ pub async fn bot_main(db: DatabaseConnection) {
             Box::pin(async move {
                 println!("Starting");
                 Ok(UserData {
-                    db,
                     start_time: SystemTime::now(),
                 })
             })
