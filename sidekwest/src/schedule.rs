@@ -60,11 +60,9 @@ struct Event {
 impl Schedule {
     async fn publish_schedule(&self) -> Result<()> {
         let client = get_client()?;
-        let mesgs: Vec<_> = get_channel_messages(self.post_location.channel_id, &client)
-            .await?
-            .into_iter()
-            .filter(|id| Some(id) != self.post_location.message_id.as_ref())
-            .collect();
+        let mut mesgs: Vec<_> =
+            get_channel_messages(self.post_location.channel_id, &client).await?;
+        mesgs.retain(|id| Some(id) != self.post_location.message_id.as_ref());
         eprintln!("Found {} messages to delete", mesgs.len());
         delete_messages(self.post_location.channel_id, mesgs, &client).await?;
         upsert_webhook(
