@@ -17,6 +17,7 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::discord::data::{Snowflake, SnowflakeError};
 use crate::secrecy;
 
 const TIME_PATTERN: &str = r"^\s*(?<time_value>[01]?\d(?::[0-5]\d)?)\s*(?<ampm>[AaPp][Mm]?)";
@@ -36,7 +37,7 @@ struct Schedule {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 struct ScheduleConfig {
     timezone: String,
-    ping_role: u64,
+    ping_role: Snowflake,
     ping_message: String,
     schedule_header: Option<String>,
     schedule_footer: Option<String>,
@@ -44,9 +45,9 @@ struct ScheduleConfig {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 struct PostLocation {
-    guild_id: u64,
-    channel_id: u64,
-    message_id: Option<u64>,
+    guild_id: Snowflake,
+    channel_id: Snowflake,
+    message_id: Option<Snowflake>,
     webhook: Webhook,
 }
 
@@ -63,12 +64,12 @@ struct Event {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Webhook {
-    id: u64,
+    id: Snowflake,
     encrypted_token: String,
 }
 
 impl Webhook {
-    pub fn new(id: u64, encrypted_token: String) -> Self {
+    pub fn new(id: Snowflake, encrypted_token: String) -> Self {
         Self {
             id,
             encrypted_token,
@@ -87,11 +88,12 @@ impl Schedule {
             .user_agent("Discord Bot (https://twitch.tv/kwest_ng, v0.1-alpha)")
             .build()?;
 
-        let mesgs: Vec<u64> = get_channel_messages(self.post_location.channel_id, &client)
+        let mesgs: Vec<_> = get_channel_messages(self.post_location.channel_id, &client)
             .await?
             .into_iter()
-            .filter(|id| Some(*id) != self.post_location.message_id)
-            .collect();
+            .filter(|id| Some(id) != self.post_location.message_id.as_deref())
+            .map(Snowflake::new)
+            .collect::<Result<_, SnowflakeError>>()?;
         eprintln!("Found {} messages to delete", mesgs.len());
         delete_messages(self.post_location.channel_id, mesgs, &client).await?;
 
@@ -265,7 +267,7 @@ struct RateLimitResponse {
     retry_after: f32,
 }
 
-async fn delete_messages(channel_id: u64, mesgs: Vec<u64>, client: &Client) -> Result<()> {
+async fn delete_messages(channel_id: Snowflake, mesgs: Vec<Snowflake>, client: &Client) -> Result<()> {
     let mut queue = VecDeque::from_iter(mesgs);
     while let Some(mesg) = queue.pop_front() {
         let url = format!("{API_URL}/channels/{channel_id}/messages/{mesg}");
@@ -288,7 +290,7 @@ async fn delete_messages(channel_id: u64, mesgs: Vec<u64>, client: &Client) -> R
     Ok(())
 }
 
-async fn get_channel_messages(channel_id: u64, client: &Client) -> Result<Vec<u64>> {
+async fn get_channel_messages(channel_id: Snowflake, client: &Client) -> Result<Vec<u64>> {
     let url = format!("{API_URL}/channels/{channel_id}/messages");
     let resp = client
         .get(url)

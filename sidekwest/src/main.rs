@@ -3,6 +3,7 @@ use tracing_subscriber::EnvFilter;
 
 mod bot;
 mod cli;
+mod discord;
 mod schedule;
 mod secrecy;
 

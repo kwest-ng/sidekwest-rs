@@ -12,7 +12,7 @@ color-eyre = "0.6.3"
 dotenv = "0.15.0"
 fernet = "0.2.1"
 lazy_static = "1.4.0"
-nutype = { version = "0.4.0", features = ["serde"] }
+nutype = { version = "0.4.0", features = ["serde", "new_unchecked"] }
 poise = "0.6.1"
 rand = "0.8.5"
 regex = "1.10.4"
