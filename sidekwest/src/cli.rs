@@ -8,7 +8,7 @@ use crate::secrecy::{decrypt, encrypt, generate_key, url_to_webhook};
 use crate::{bot, schedule};
 
 #[derive(Debug, Parser, Clone)]
-struct CLI {
+struct CliOpts {
     #[command(subcommand)]
     command: Command,
 }
@@ -38,7 +38,7 @@ fn read_stdin() -> Result<String> {
 }
 
 pub async fn run() -> Result<()> {
-    let opts: CLI = CLI::parse();
+    let opts: CliOpts = CliOpts::parse();
     match opts.command {
         Command::Bot => bot::bot_main().await,
         Command::Schedule { file } => schedule::run_schedule_update(file).await?,

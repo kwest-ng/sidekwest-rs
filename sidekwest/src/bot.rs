@@ -18,7 +18,7 @@ async fn _purge(ctx: &Context<'_>, f: impl Fn(MessageId) -> ShouldDelete) -> Res
     let chan = ctx.guild_channel().await.unwrap();
     let mut messages = chan.messages(ctx, GetMessages::new().limit(100)).await?;
     messages.retain(|msg| f(msg.id).into_inner());
-    if messages.len() == 0 {
+    if messages.is_empty() {
         return Ok(());
     }
     chan.delete_messages(ctx, messages).await?;
