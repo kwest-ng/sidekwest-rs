@@ -202,16 +202,21 @@ impl Event {
     }
 
     fn get_next_day(needle: &str) -> Result<NaiveDate> {
-        let mut today = Local::now().date_naive();
+        let today = Local::now().date_naive();
+        Self::get_next_day_from(needle, today)
+    }
+
+    fn get_next_day_from(needle: &str, start: NaiveDate) -> Result<NaiveDate> {
+        let mut candidate = start;
         if needle.len() > 3 {
             bail!("day of week too long: {needle}")
         };
         for _ in 0..10 {
-            let weekday = today.weekday().to_string().to_ascii_lowercase();
+            let weekday = candidate.weekday().to_string().to_ascii_lowercase();
             if weekday.starts_with(&needle.to_ascii_lowercase()) {
-                return Ok(today);
+                return Ok(candidate);
             }
-            today = today.succ_opt().unwrap();
+            candidate = candidate.succ_opt().unwrap();
         }
         bail!("Failed to match day of week")
     }
@@ -262,11 +267,7 @@ struct RateLimitResponse {
 
 async fn delete_messages(channel_id: u64, mesgs: Vec<u64>, client: &Client) -> Result<()> {
     let mut queue = VecDeque::from_iter(mesgs);
-    loop {
-        let mesg = match queue.pop_front() {
-            Some(mesg) => mesg,
-            None => break,
-        };
+    while let Some(mesg) = queue.pop_front() {
         let url = format!("{API_URL}/channels/{channel_id}/messages/{mesg}");
         let resp = client.delete(url).send().await?;
 
