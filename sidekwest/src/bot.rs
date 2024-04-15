@@ -5,6 +5,7 @@ use nutype::nutype;
 use poise::serenity_prelude::{GetMessages, MessageId};
 use poise::{serenity_prelude as serenity, Framework, FrameworkOptions, PrefixFrameworkOptions};
 
+mod role_ingest;
 
 struct UserData {
     start_time: SystemTime,
