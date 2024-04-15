@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 
-use crate::secrecy::{decrypt, encrypt, generate_key, url_to_webhook};
-use crate::{bot, schedule};
+use crate::secrecy;
+use crate::{bot, discord, schedule};
 
 #[derive(Debug, Parser, Clone)]
 struct CliOpts {
@@ -43,25 +43,25 @@ pub async fn run() -> Result<()> {
         Command::Bot => bot::bot_main().await,
         Command::Schedule { file } => schedule::run_schedule_update(file).await?,
         Command::Encrypt => {
-            let str = encrypt(&read_stdin()?)?;
+            let str = secrecy::encrypt(&read_stdin()?)?;
             print!("{str}");
         }
         Command::Decrypt => {
-            let str = decrypt(&read_stdin()?)?;
+            let str = secrecy::decrypt(&read_stdin()?)?;
             print!("{str}");
         }
         Command::TestFernet => {
             let str = read_stdin()?;
-            let actual = encrypt(&str).and_then(|s| decrypt(&s))?;
+            let actual = secrecy::encrypt(&str).and_then(|s| secrecy::decrypt(&s))?;
             assert_eq!(str, actual);
             println!("OK");
         }
         Command::EncryptWebhook => {
-            let hook = url_to_webhook(&read_stdin()?)?;
+            let hook = discord::api::url_to_webhook(&read_stdin()?)?;
             println!("{}", serde_json::to_string_pretty(&hook)?);
         }
         Command::NewKey => {
-            print!("{}", generate_key());
+            print!("{}", secrecy::generate_key());
         }
     };
     Ok(())

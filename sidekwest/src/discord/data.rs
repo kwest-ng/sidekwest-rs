@@ -1,6 +1,7 @@
 use std::num::NonZeroU64;
 
 use nutype::nutype;
+use serde::{Deserialize, Serialize};
 
 #[nutype(
     new_unchecked,
@@ -41,5 +42,28 @@ impl From<NonZeroU64> for Snowflake {
         unsafe {
             Self::new_unchecked(value.into())
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Webhook {
+    id: Snowflake,
+    encrypted_token: String,
+}
+
+impl Webhook {
+    pub fn new(id: Snowflake, encrypted_token: String) -> Self {
+        Self {
+            id,
+            encrypted_token,
+        }
+    }
+    
+    pub fn id(&self) -> Snowflake {
+        self.id
+    }
+    
+    pub fn encrypted_token(&self) -> &str {
+        &self.encrypted_token
     }
 }

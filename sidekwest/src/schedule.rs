@@ -1,24 +1,19 @@
 use std::cell::Cell;
-use std::collections::VecDeque;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::time::Duration;
-use std::{env, thread};
 
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use color_eyre::eyre::{bail, eyre, WrapErr};
+use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
 use regex::Regex;
-use reqwest::header::{self, HeaderMap};
-use reqwest::Client;
-use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde::Deserialize;
 
-use crate::discord::data::{Snowflake, SnowflakeError};
-use crate::secrecy;
+use crate::discord::api::{
+    delete_messages, get_channel_messages, get_client, post_webhook, upsert_webhook,
+};
+use crate::discord::data::{Snowflake, Webhook};
 
 const TIME_PATTERN: &str = r"^\s*(?<time_value>[01]?\d(?::[0-5]\d)?)\s*(?<ampm>[AaPp][Mm]?)";
 
@@ -62,92 +57,28 @@ struct Event {
     _event_time: Cell<Option<DateTime<Local>>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct Webhook {
-    id: Snowflake,
-    encrypted_token: String,
-}
-
-impl Webhook {
-    pub fn new(id: Snowflake, encrypted_token: String) -> Self {
-        Self {
-            id,
-            encrypted_token,
-        }
-    }
-}
-
 impl Schedule {
     async fn publish_schedule(&self) -> Result<()> {
-        let token = env::var("DISCORD_TOKEN")?;
-
-        let mut headers = HeaderMap::new();
-        headers.insert(header::AUTHORIZATION, format!("Bot {token}").try_into()?);
-        let client = Client::builder()
-            .default_headers(headers)
-            .user_agent("Discord Bot (https://twitch.tv/kwest_ng, v0.1-alpha)")
-            .build()?;
-
+        let client = get_client()?;
         let mesgs: Vec<_> = get_channel_messages(self.post_location.channel_id, &client)
             .await?
             .into_iter()
-            .filter(|id| Some(id) != self.post_location.message_id.as_deref())
-            .map(Snowflake::new)
-            .collect::<Result<_, SnowflakeError>>()?;
+            .filter(|id| Some(id) != self.post_location.message_id.as_ref())
+            .collect();
         eprintln!("Found {} messages to delete", mesgs.len());
         delete_messages(self.post_location.channel_id, mesgs, &client).await?;
-
-        let wh_token = secrecy::decrypt(&self.post_location.webhook.encrypted_token)?;
-        let webhook_base_url = format!(
-            "{API_URL}/webhooks/{}/{}",
-            self.post_location.webhook.id, wh_token
-        );
-
-        let mut sticky_mesg = None;
-        if let Some(id) = self.post_location.message_id {
-            let url = format!("{webhook_base_url}/messages/{id}");
-            if client.get(url).send().await?.status().is_success() {
-                sticky_mesg = Some(id);
-            } else {
-                eprintln!("Message id was provided, but missing");
-            };
-        };
-        let body = json!({
-            "content": self.events_to_message()?
-        });
-        match sticky_mesg {
-            Some(id) => {
-                let url = format!("{webhook_base_url}/messages/{id}");
-                client
-                    .patch(url)
-                    .json(&body)
-                    .send()
-                    .await?
-                    .error_for_status()?;
-            }
-            None => {
-                client
-                    .post(&webhook_base_url)
-                    .query(&[("wait", true)])
-                    .json(&body)
-                    .send()
-                    .await?
-                    .error_for_status()?;
-            }
-        };
+        upsert_webhook(
+            &client,
+            &self.post_location.webhook,
+            &self.post_location.message_id,
+            &self.events_to_message()?,
+        )
+        .await?;
         let ping_msg = format!(
             "{}\n\n<@&{}>",
             self.config.ping_message, self.config.ping_role
         );
-        let body = json!({
-            "content": ping_msg
-        });
-        client
-            .post(&webhook_base_url)
-            .json(&body)
-            .send()
-            .await?
-            .error_for_status()?;
+        post_webhook(&client, &self.post_location.webhook, &ping_msg).await?;
         Ok(())
     }
 
@@ -253,56 +184,4 @@ impl Event {
             .expect("naivetime creation failed");
         Ok(time)
     }
-}
-
-const API_URL: &str = "https://discord.com/api/v9";
-
-#[derive(Debug, Deserialize, Clone)]
-struct MessageId {
-    id: String,
-}
-
-#[derive(Debug, Deserialize, Copy, Clone)]
-struct RateLimitResponse {
-    retry_after: f32,
-}
-
-async fn delete_messages(channel_id: Snowflake, mesgs: Vec<Snowflake>, client: &Client) -> Result<()> {
-    let mut queue = VecDeque::from_iter(mesgs);
-    while let Some(mesg) = queue.pop_front() {
-        let url = format!("{API_URL}/channels/{channel_id}/messages/{mesg}");
-        let resp = client.delete(url).send().await?;
-
-        if resp.status().is_success() {
-            eprintln!("Deleted message id: {mesg}");
-            continue;
-        }
-
-        if resp.status() == StatusCode::TOO_MANY_REQUESTS {
-            eprintln!("Rate limited!");
-            queue.push_front(mesg);
-        }
-
-        let delay = resp.json::<RateLimitResponse>().await?.retry_after + 3.0;
-        eprintln!("Sleeping for {delay}s to reset rate limits");
-        thread::sleep(Duration::from_secs_f32(delay));
-    }
-    Ok(())
-}
-
-async fn get_channel_messages(channel_id: Snowflake, client: &Client) -> Result<Vec<u64>> {
-    let url = format!("{API_URL}/channels/{channel_id}/messages");
-    let resp = client
-        .get(url)
-        .query(&[("limit", 100)])
-        .send()
-        .await
-        .context("Sending get")?;
-    resp.error_for_status()
-        .context("Checking get response")?
-        .json::<Vec<MessageId>>()
-        .await?
-        .into_iter()
-        .map(|m_id| m_id.id.parse::<u64>().map_err(Into::into))
-        .collect::<Result<Vec<_>>>()
 }
